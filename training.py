@@ -70,7 +70,10 @@ def split_docs(documents, chunk_size=700, chunk_overlap=120):
           return None
      splitter= RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
      chunks=splitter.split_documents(documents)
+     for chunk in chunks:
+          print(chunk.page_content)
      return chunks
+    #  return documents
      
 def create_temp_directory():
     with tempfile.TemporaryDirectory() as temp_dir:

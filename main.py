@@ -87,10 +87,20 @@ async def list():
  
 from fastapi.responses import RedirectResponse
 
-@app.get("/load-frontend")
-async def load_frontend():
-    # Redirect to the frontend running on port 3000
-    return RedirectResponse(url="http://localhost:3000")
+# @app.get("/load-frontend")
+# async def load_frontend():
+#     # Redirect to the frontend running on port 3000
+#     return RedirectResponse(url="http://localhost:3000")
+
+# Serve the frontend static files
+
+from fastapi.staticfiles import StaticFiles
+
+# app.mount("/", StaticFiles(directory="build", html=True), name="frontend")
+
+# @app.get("/load-frontend")
+# async def redirect_to_frontend():
+#     return RedirectResponse(url="/")
 
 if __name__ == "__main__":
     uvicorn.run(app)

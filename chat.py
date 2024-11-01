@@ -9,27 +9,43 @@ from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_community.callbacks import get_openai_callback
 from langchain.schema import format_document
-
+from OnedriveMapping import Mapping
 import os
 import glob
+import json
 
 # Here we use a global variable to store the chat message history.
 # This will make it easier to inspect it to see the underlying results.
 store = {}
 
+# embeddings = AzureOpenAIEmbeddings(
+#     deployment="text-embedding-ada-002",  # Azure OpenAI deployment name
+#     model="text-embedding-ada-002",  # Model you want to use
+#     api_key="643406f5cf994e82bf1dadecf0e120f1",  # Your Azure OpenAI API key
+#     azure_endpoint="https://gpt-demo-openai.openai.azure.com/",  # Your Azure OpenAI resource URL
+#     openai_api_version="2023-12-01-preview"  # API version you're using
+# )
+
+# llm = AzureChatOpenAI(
+#     openai_api_version="2023-12-01-preview",  # API version,
+#     azure_endpoint="https://gpt-demo-openai.openai.azure.com/",  # Your Azure OpenAI resource URL
+#     api_key="643406f5cf994e82bf1dadecf0e120f1",  # Your Azure OpenAI API key
+#     deployment_name="gpt-4",
+# )
+
 embeddings = AzureOpenAIEmbeddings(
-    deployment="text-embedding-ada-002",  # Azure OpenAI deployment name
+    deployment="text-data-002",  # Azure OpenAI deployment name
     model="text-embedding-ada-002",  # Model you want to use
-    api_key="643406f5cf994e82bf1dadecf0e120f1",  # Your Azure OpenAI API key
-    azure_endpoint="https://gpt-demo-openai.openai.azure.com/",  # Your Azure OpenAI resource URL
+    api_key="db8d369a30e840b39ccdfdce4808ec7f",  # Your Azure OpenAI API key
+    azure_endpoint="https://rakbankgenaidevai.openai.azure.com/",  # Your Azure OpenAI resource URL
     openai_api_version="2023-12-01-preview"  # API version you're using
 )
 
 llm = AzureChatOpenAI(
-    openai_api_version="2023-12-01-preview",  # API version,
-    azure_endpoint="https://gpt-demo-openai.openai.azure.com/",  # Your Azure OpenAI resource URL
-    api_key="643406f5cf994e82bf1dadecf0e120f1",  # Your Azure OpenAI API key
-    deployment_name="gpt-4",
+    openai_api_version="2023-05-15",  # API version,
+    azure_endpoint="https://rakbankgenaidevai.openai.azure.com/",  # Your Azure OpenAI resource URL
+    api_key="db8d369a30e840b39ccdfdce4808ec7f",  # Your Azure OpenAI API key
+    deployment_name="gpt-4o",
 )
 
 # llm = AzureOpenAI(
@@ -58,7 +74,7 @@ async def chatting(query,department , history, is_followup, username):
     else:
         filter = list[0]
 
-    retriever= chromadbinstance.as_retriever(search_kwargs={'k': 5,  'filter': filter })
+    retriever= chromadbinstance.as_retriever(search_kwargs={'k': 10,  'filter': filter })
 
     engg_prompt="""
     You are helpful assiatsnt and provides answer to the questions only based on the context provided.
@@ -120,8 +136,12 @@ async def chatting(query,department , history, is_followup, username):
     documents= retriever.get_relevant_documents(query)
     sources=[]
     for doc in documents:
-        # print(doc)
-        sources.append(doc.metadata["source"])
+        # print(doc.page_content)
+        data=doc.metadata["source"]
+        print(Mapping["KFS-Rakbank.pdf"])
+        source=data
+        sources.append(source)
+        sources.append(doc.metadata["page"])
     # print(documents)
     context=_combine_documents(documents)
     # if(is_followup):
@@ -169,7 +189,7 @@ async def chatting(query,department , history, is_followup, username):
     Important points while generating and answer:
         1. Please provide the following response in markdown format, using headers, lists and any necessary formatting to make the information easy to read. Include bullets for exceptions and conditions where applicable.
 	    2. You generate summarized answer with heading "Summarized Answer" at the very top with word count less than 80.
-        3. summarized answer is follwed by detailed answer with heading "Detailed Answer" which can have more heading and details but strictly relevant to the Question.
+        3. summarized answer is follwed by detailed answer with heading "Detailed Answer" which can have more heading and details but strictly relevant to the Question. There is no word count limit on "Detailed Answer". Show Scripts and steps as it is from context without any alteration.
         4. You always add subheading and steps in Detailed answer whenever possible.
         5. You generate stepwise answer wherever possible.
         6. Your steps might contain points like 'Eligibility and Requirements', 'Steps to open account' etc.
@@ -181,6 +201,35 @@ async def chatting(query,department , history, is_followup, username):
     Question:```{Question}```
     Context: ```{Context}```
     """
+        intent=identify_intent(query)
+
+        if(intent["category"]=="Product-Specific"):
+            Rule="""
+                You follow below explicit rules while generating response format.
+                Format Rule : 
+                    -	Specific (limited to 350 words to avoid it being too verbose)
+                    -	General (no customer-specific or situation-specific information)
+                    -	If the response is longer than 100 words, then put it in a mark-down format
+            """
+            engg_prompt+=Rule
+        elif(intent["category"]=="Customer-Queries"):
+            Rule="""
+                You follow below explicit rules while generating response format.
+                Format Rule : 
+                    -	Information should be step-by-step, displayed as a process
+                    -	Response should be displayed in a conversational tone and the steps should be simple to understand
+                    -	Response should include the expected outcome (what the customer should see when they follow the steps that the contact center agent gives them
+            """
+            engg_prompt+=Rule
+        elif(intent["category"]=="Customer-Requests"):
+            Rule="""
+                You follow below explicit rules while generating response format.
+                Format Rule : 
+                    -	Information should be step-by-step
+                    -	Should include information about how to navigate internal systems (more technical jargon – will be enhanced if we also upload a glossary) 
+            """
+            engg_prompt+=Rule
+        
         template=ChatPromptTemplate.from_template(template=engg_prompt)
         print(template.messages[0].prompt)
         print(template.messages[0].prompt.input_variables)
@@ -209,3 +258,35 @@ def get_chat_history_as_text(history):
         if(len(history_text))>1000:
             break
     return history_text
+
+def identify_intent(query):
+    propmt="""
+    You are a category classifier assistant who help classify the query into given categories.
+    STRICTLY return output in JSON format.
+    Categories must be from [ 'Product-Specific', 'Customer-Queries', 'Customer-Requests', 'General']
+    You strictly use below rules and conditions to identify the category:
+    1. Product-Specific:
+        This category contains inputs that are requesting static information about a product. 
+        Also queries may contain some words from list: [eligibility, benefits, documents, conditions, interest rate, cashback, turnaround time, skywards miles, merchants, World card, Skyward card, what-is]
+    2. Customer-Queries:
+        This category contains inputs that will elicit a step-by-step process outline that a contact center agent will have to guide a customer through (i.e. the actions will be taken by the customer on the phone, and the contact center agent will be guiding the customer on their own device using the instructions displayed on the screen). This response will have two layers of information – what the contact center agent should tell the customer and what the customer should be seeing on their end when they perform the actions that the contact center agent tells them. 
+        Also queries may contain some words from list: [activate, set up, reset, process, new card, statement, liability certificate, renewal, block, digital pathway, PIN, app, balance, claim, how-to]
+    3. Customer-Requests:
+        This category contains inputs that will elicit a step-by-step process outline that the contact center agent has to undertake by themselves to conduct an action on behalf of the customer. This will include steps that need to be undertaken on their own systems, like Finacle & IBPS, and will be descriptive enough to help them navigate those systems to fulfill the customer’s request. 
+        Also queries may contain some words from list:[reversal, process, closure, manual, dispute, credit limit, IBPS, Finacle, service request, cancellation, overlimit fee, late payment fee, reverse charge, how-to]
+    4. General:
+        This category is choosen if it does not falls into above categories.
+
+    output format:{{"category":<Product-Specific/Customer-Queries/Customer-Requests/COMPARE/GAPANALYSIS/GREETING>}}
+    Question:```{query}```
+    """
+    template=ChatPromptTemplate.from_template(template=propmt)
+    
+    message=template.format_messages(query=query)
+    with get_openai_callback() as cb:
+            response = llm(message)
+    import json
+    data=response.content.replace('json\n','').replace('\n','').replace('```','')
+    data1=json.loads(data)
+    
+    return data1
