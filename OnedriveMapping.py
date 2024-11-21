@@ -18,5 +18,13 @@ Mapping = {
     "General-Terms-and-Conditions-Conventional.pdf":{
         "Source": "TnC",
         "Link":"https://celebaltech.sharepoint.com/:b:/s/KnowledgeManagementSystem-Test/EcM7-7osCMxKi8UyPVWgoTMBRQkb1OlVkQhDMe50o1dwYQ?e=ew6uXa"
+    },
+    "Digital Banking Services - Website Info.pdf":{
+         "Source": "PDF",
+        "Link":"https://celebaltech.sharepoint.com/:b:/s/KnowledgeManagementSystem-Test/EdX5gtUX2oZFocAund0XwrABlO8w8oRXSJNfRQjhtOhfWw?e=sUdq8p"
+    },
+    "RAKBANK Credit Card FAQs.pdf":{
+         "Source": "FAQ",
+        "Link":"https://celebaltech.sharepoint.com/:b:/s/KnowledgeManagementSystem-Test/EQVUR3LrAv9Ni0n9GpD5yqIBXctlwQIQ1zScua4-BDMFPg?e=ILzv33"
     }
 }

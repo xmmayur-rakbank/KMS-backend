@@ -7,6 +7,8 @@ from training import training
 from chat import chatting
 from delete import deleting
 from list import listing
+from list import listChunks
+from feedback import feedbackSave
 
 app = FastAPI()
 
@@ -19,7 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 @app.get("/")
 def read_root():
@@ -50,12 +51,32 @@ class ChatRequest(BaseModel):
     Query: str
     ChatHistory: List[ChatMessage] 
 
+class FeedbackRequest(BaseModel):
+    SessionId: int
+    MessageId: int
+    Question: str
+    Answer: str
+    Textual_Feedback : str
+    Numerical_Feedback : int
+
 # async def chat(username:Annotated[str, Form()], departmant: list[Annotated[str, Form()]], is_followup: Annotated[bool, Form()], chatRequest: ChatRequest = Body(...)):
 @app.post("/chat/")
 async def chat(username:str, departmant: list[str] , chatRequest: ChatRequest, is_followup: bool):
     try:
         print(chatRequest)
         answer = await chatting(chatRequest.Query, departmant, chatRequest, is_followup, username)
+        # chat_history_for_search = get
+        return answer
+    except Exception as e:
+        # logger.log(msg= f"An error occurred: {str(e)}",level=logging.ERROR)
+        print(f"Exception in chat() : {e}")
+        raise HTTPException(status_code=500, detail=f"Something Went Wrong! Please try again!! {str(e)}")
+
+@app.post("/feedback/")
+async def feedback(feedbackRequest: FeedbackRequest):
+    try:
+        print(feedbackRequest)
+        answer = await feedbackSave(feedbackRequest.SessionId, feedbackRequest.MessageId, feedbackRequest.Answer, feedbackRequest.Question, feedbackRequest.Textual_Feedback, feedbackRequest.Numerical_Feedback)
         # chat_history_for_search = get
         return answer
     except Exception as e:
@@ -85,22 +106,17 @@ async def list():
         print(f"Exception in training() : {e}")
         raise HTTPException(status_code=500, detail=f"Something Went Wrong! Please try again!! {str(e)}")
  
-from fastapi.responses import RedirectResponse
+@app.post("/listChunks/")
+async def listchunks(file : Annotated[str, Form()]):
+    try:
+        results = await listChunks(file)
+        # logger.log(msg="List of all output files extracted for usecase 1",level=logging.INFO)
+        return results
+    except Exception as e:
+        # logger.log(msg= f"An error occurred: {str(e)}",level=logging.ERROR)
+        print(f"Exception in training() : {e}")
+        raise HTTPException(status_code=500, detail=f"Something Went Wrong! Please try again!! {str(e)}")
 
-# @app.get("/load-frontend")
-# async def load_frontend():
-#     # Redirect to the frontend running on port 3000
-#     return RedirectResponse(url="http://localhost:3000")
-
-# Serve the frontend static files
-
-from fastapi.staticfiles import StaticFiles
-
-# app.mount("/", StaticFiles(directory="build", html=True), name="frontend")
-
-# @app.get("/load-frontend")
-# async def redirect_to_frontend():
-#     return RedirectResponse(url="/")
 
 if __name__ == "__main__":
     uvicorn.run(app)
